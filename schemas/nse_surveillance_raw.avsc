@@ -1,0 +1,16 @@
+{
+  "namespace": "nse.surveillance",
+  "type": "record",
+  "name": "SurveillanceRaw",
+  "doc": "NSE ASM / GSM / FO-Ban surveillance record",
+  "fields": [
+    {"name": "ingested_at",    "type": "long"},
+    {"name": "as_of_date",     "type": "string"},
+    {"name": "symbol",         "type": "string"},
+    {"name": "isin",           "type": ["null","string"],  "default": null},
+    {"name": "company_name",   "type": ["null","string"],  "default": null},
+    {"name": "list_type",      "type": "string",           "doc": "ASM_LT, ASM_ST, GSM, FO_BAN"},
+    {"name": "stage",          "type": ["null","int"],     "default": null, "doc": "GSM stage 0-6"},
+    {"name": "reason",         "type": ["null","string"],  "default": null}
+  ]
+}

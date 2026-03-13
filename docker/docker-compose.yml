@@ -1,0 +1,373 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Neith — Indian Stock Datalake: Local Docker Compose Stack
+# Services: Kafka, Schema Registry, MinIO, Flink, Spark, Airflow, Prometheus, Grafana
+# ─────────────────────────────────────────────────────────────────────────────
+
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.9.3-python3.11
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__FERNET_KEY: "81HqDtbqAywKSOumSha3BhWNOdQ26slT6K0YaZeZyPs="
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGBAG_IMPORT_TIMEOUT: "120"
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+    AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: "30"
+    PYTHONPATH: /opt/airflow/neith
+    NEITH_KAFKA_BROKERS: kafka:29092
+    NEITH_MINIO_ENDPOINT: http://minio:9000
+    NEITH_MINIO_ACCESS_KEY: neith-access
+    NEITH_MINIO_SECRET_KEY: neith-secret99
+    NEITH_ICEBERG_CATALOG_URI: http://iceberg-rest:8181
+  volumes:
+    - ../airflow_dags:/opt/airflow/dags
+    - ../producers:/opt/airflow/neith/producers
+    - ../config:/opt/airflow/neith/config
+    - airflow-logs:/opt/airflow/logs
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+
+  # ── Kafka ──────────────────────────────────────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: neith-zookeeper
+    hostname: zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo ruok | nc localhost 2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: neith-kafka
+    hostname: kafka
+    restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,EXTERNAL://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_RETENTION_HOURS: 168      # 7 days
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824 # 1 GB
+      KAFKA_NUM_PARTITIONS: 6
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: kafka
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.0
+    container_name: neith-schema-registry
+    hostname: schema-registry
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/subjects"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: neith-kafka-ui
+    restart: unless-stopped
+    depends_on:
+      - kafka
+      - schema-registry
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: neith-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+      KAFKA_CLUSTERS_0_METRICS_PORT: 9101
+
+  # ── MinIO (S3-compatible object store) ────────────────────────────────────
+  minio:
+    image: minio/minio:RELEASE.2024-03-13T23-51-57Z
+    container_name: neith-minio
+    hostname: minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: neith-access
+      MINIO_ROOT_PASSWORD: neith-secret99
+      MINIO_VOLUMES: /data
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: neith-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: |
+      /bin/sh -c "
+        mc alias set neith http://minio:9000 neith-access neith-secret99;
+        mc mb --ignore-existing neith/neith-lake;
+        mc mb --ignore-existing neith/neith-lake/raw;
+        mc mb --ignore-existing neith/neith-lake/bronze;
+        mc mb --ignore-existing neith/neith-lake/silver;
+        mc mb --ignore-existing neith/neith-lake/gold;
+        mc anonymous set none neith/neith-lake;
+        echo 'MinIO buckets initialised';
+      "
+
+  # ── Iceberg REST Catalog ──────────────────────────────────────────────────
+  iceberg-rest:
+    image: tabulario/iceberg-rest:0.10.0
+    container_name: neith-iceberg-rest
+    hostname: iceberg-rest
+    restart: unless-stopped
+    depends_on:
+      minio:
+        condition: service_healthy
+    ports:
+      - "8181:8181"
+    environment:
+      CATALOG_WAREHOUSE: s3://neith-lake/
+      CATALOG_IO__IMPL: org.apache.iceberg.aws.s3.S3FileIO
+      CATALOG_S3_ENDPOINT: http://minio:9000
+      CATALOG_S3_PATH__STYLE__ACCESS: "true"
+      AWS_ACCESS_KEY_ID: neith-access
+      AWS_SECRET_ACCESS_KEY: neith-secret99
+      AWS_REGION: us-east-1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8181/v1/config"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ── Apache Flink ──────────────────────────────────────────────────────────
+  flink-jobmanager:
+    image: apache/flink:1.19-scala_2.12-java11
+    container_name: neith-flink-jobmanager
+    hostname: flink-jobmanager
+    restart: unless-stopped
+    ports:
+      - "8082:8081"  # Flink Web UI
+    command: jobmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 4
+        state.backend: rocksdb
+        state.checkpoints.dir: s3://neith-lake/flink-checkpoints/
+        s3.endpoint: http://minio:9000
+        s3.path.style.access: true
+        s3.access.key: neith-access
+        s3.secret.key: neith-secret99
+      AWS_REGION: us-east-1
+    volumes:
+      - ../flink_jobs:/opt/flink/usrlib
+      - flink-checkpoints:/tmp/flink-checkpoints
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/overview"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  flink-taskmanager:
+    image: apache/flink:1.19-scala_2.12-java11
+    container_name: neith-flink-taskmanager
+    hostname: flink-taskmanager
+    restart: unless-stopped
+    depends_on:
+      flink-jobmanager:
+        condition: service_healthy
+    command: taskmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 4
+        taskmanager.memory.process.size: 2048m
+        state.backend: rocksdb
+        state.checkpoints.dir: s3://neith-lake/flink-checkpoints/
+        s3.endpoint: http://minio:9000
+        s3.path.style.access: true
+        s3.access.key: neith-access
+        s3.secret.key: neith-secret99
+      AWS_REGION: us-east-1
+    volumes:
+      - ../flink_jobs:/opt/flink/usrlib
+
+  # ── Apache Spark ──────────────────────────────────────────────────────────
+  spark-master:
+    image: bitnami/spark:3.5.1
+    container_name: neith-spark-master
+    hostname: spark-master
+    restart: unless-stopped
+    ports:
+      - "8083:8080"  # Spark Master Web UI
+      - "7077:7077"
+    environment:
+      SPARK_MODE: master
+      SPARK_RPC_AUTHENTICATION_ENABLED: "no"
+      SPARK_RPC_ENCRYPTION_ENABLED: "no"
+      SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED: "no"
+      SPARK_SSL_ENABLED: "no"
+      AWS_ACCESS_KEY_ID: neith-access
+      AWS_SECRET_ACCESS_KEY: neith-secret99
+
+  spark-worker:
+    image: bitnami/spark:3.5.1
+    container_name: neith-spark-worker
+    restart: unless-stopped
+    depends_on:
+      - spark-master
+    environment:
+      SPARK_MODE: worker
+      SPARK_MASTER_URL: spark://spark-master:7077
+      SPARK_WORKER_MEMORY: 3G
+      SPARK_WORKER_CORES: 4
+      AWS_ACCESS_KEY_ID: neith-access
+      AWS_SECRET_ACCESS_KEY: neith-secret99
+    volumes:
+      - ../spark_jobs:/opt/spark-apps
+
+  # ── Airflow ───────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: neith-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  airflow-init:
+    <<: *airflow-common
+    container_name: neith-airflow-init
+    command: >
+      bash -c "
+        airflow db migrate &&
+        airflow users create --username admin --password admin --firstname Neith --lastname Admin --role Admin --email admin@neith.local
+      "
+    restart: "no"
+
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: neith-airflow-webserver
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    ports:
+      - "8084:8080"
+    command: webserver
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: neith-airflow-scheduler
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    command: scheduler
+
+  # ── Prometheus + Grafana ──────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    container_name: neith-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./grafana/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: neith-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: neith123
+      GF_SECURITY_ADMIN_USER: admin
+      GF_INSTALL_PLUGINS: grafana-clock-panel
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - grafana-data:/var/lib/grafana
+
+volumes:
+  zookeeper-data:
+  zookeeper-log:
+  kafka-data:
+  minio-data:
+  postgres-data:
+  airflow-logs:
+  flink-checkpoints:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  default:
+    name: neith-network
+    driver: bridge

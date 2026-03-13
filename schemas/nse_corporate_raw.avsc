@@ -1,0 +1,20 @@
+{
+  "namespace": "nse.corporate",
+  "type": "record",
+  "name": "CorporateRaw",
+  "doc": "NSE corporate action record",
+  "fields": [
+    {"name": "ingested_at",    "type": "long"},
+    {"name": "symbol",         "type": "string"},
+    {"name": "company_name",   "type": ["null","string"],  "default": null},
+    {"name": "action_type",    "type": "string",           "doc": "DIVIDEND, SPLIT, BONUS, RIGHTS, etc."},
+    {"name": "ex_date",        "type": ["null","string"],  "default": null},
+    {"name": "record_date",    "type": ["null","string"],  "default": null},
+    {"name": "bc_start_date",  "type": ["null","string"],  "default": null},
+    {"name": "bc_end_date",    "type": ["null","string"],  "default": null},
+    {"name": "nd_start_date",  "type": ["null","string"],  "default": null},
+    {"name": "nd_end_date",    "type": ["null","string"],  "default": null},
+    {"name": "details",        "type": ["null","string"],  "default": null, "doc": "Raw action detail string e.g. 'AGM/DIV - Rs 5 Per Share'"},
+    {"name": "series",         "type": ["null","string"],  "default": null}
+  ]
+}

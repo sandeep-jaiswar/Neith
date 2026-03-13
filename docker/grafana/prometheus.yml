@@ -1,0 +1,28 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "neith-producers"
+    static_configs:
+      - targets: ["host.docker.internal:8000"]
+    metrics_path: /metrics
+
+  - job_name: "neith-api"
+    static_configs:
+      - targets: ["host.docker.internal:8000"]
+    metrics_path: /metrics
+
+  - job_name: "kafka"
+    static_configs:
+      - targets: ["kafka:9101"]
+
+  - job_name: "flink-jobmanager"
+    static_configs:
+      - targets: ["flink-jobmanager:8081"]
+    metrics_path: /metrics/prometheus
+
+  - job_name: "minio"
+    static_configs:
+      - targets: ["minio:9000"]
+    metrics_path: /minio/v2/metrics/cluster

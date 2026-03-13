@@ -1,0 +1,25 @@
+{
+  "namespace": "nse.equities",
+  "type": "record",
+  "name": "EquityRaw",
+  "doc": "Raw equity bhavcopy record from NSE via financeindia",
+  "fields": [
+    {"name": "ingested_at",   "type": "long",            "doc": "Unix epoch ms when record was produced to Kafka"},
+    {"name": "trade_date",    "type": "string",           "doc": "Market trade date YYYY-MM-DD"},
+    {"name": "symbol",        "type": "string"},
+    {"name": "series",        "type": "string",           "doc": "EQ, BE, SM, etc."},
+    {"name": "isin",          "type": ["null","string"],  "default": null},
+    {"name": "open",          "type": ["null","double"],  "default": null},
+    {"name": "high",          "type": ["null","double"],  "default": null},
+    {"name": "low",           "type": ["null","double"],  "default": null},
+    {"name": "close",         "type": ["null","double"],  "default": null},
+    {"name": "last",          "type": ["null","double"],  "default": null},
+    {"name": "prev_close",    "type": ["null","double"],  "default": null},
+    {"name": "total_trades",  "type": ["null","long"],    "default": null},
+    {"name": "total_quantity","type": ["null","long"],    "default": null},
+    {"name": "total_turnover","type": ["null","double"],  "default": null},
+    {"name": "deliverable_qty","type": ["null","long"],   "default": null},
+    {"name": "delivery_pct",  "type": ["null","double"],  "default": null},
+    {"name": "source",        "type": "string",           "default": "bhavcopy"}
+  ]
+}

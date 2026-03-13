@@ -1,0 +1,71 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "neith"
+version = "0.1.0"
+description = "Neith — Local Indian Stock Datalake: Event-driven, distributed ingestion & analytics"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+dependencies = [
+    # Data source
+    "financeindia>=0.1.0",
+    # Kafka
+    "confluent-kafka[avro]>=2.4.0",
+    "fastavro>=1.9.4",
+    # Configuration
+    "pydantic-settings>=2.2.0",
+    "python-dotenv>=1.0.1",
+    # Async & parallelism
+    "anyio>=4.3.0",
+    "tenacity>=8.2.3",
+    # Storage & query
+    "pyiceberg[s3fs,pyarrow]>=0.7.1",
+    "duckdb>=0.10.3",
+    "pyarrow>=16.0.0",
+    "pandas>=2.2.2",
+    "s3fs>=2024.3.1",
+    # API layer
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.29.0",
+    # Observability
+    "prometheus-client>=0.20.0",
+    "structlog>=24.1.0",
+    # Airflow DAGs (soft deps — installed into Airflow image)
+    # "apache-airflow>=2.9.3",
+    # PyFlink (installed into Flink image)
+    # "apache-flink>=1.19",
+    # PySpark (installed into Spark image)
+    # "pyspark>=3.5.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-asyncio>=0.23.7",
+    "pytest-mock>=3.14.0",
+    "ruff>=0.4.7",
+    "mypy>=1.10.0",
+    "httpx>=0.27.0",
+]
+
+[project.scripts]
+neith-ingest = "producers.runner:main"
+neith-api    = "api.main:start"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

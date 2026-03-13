@@ -1,0 +1,22 @@
+{
+  "namespace": "nse.indices",
+  "type": "record",
+  "name": "IndexRaw",
+  "doc": "NSE index record (live or historical)",
+  "fields": [
+    {"name": "ingested_at",    "type": "long"},
+    {"name": "trade_date",     "type": "string"},
+    {"name": "index_name",     "type": "string"},
+    {"name": "open",           "type": ["null","double"], "default": null},
+    {"name": "high",           "type": ["null","double"], "default": null},
+    {"name": "low",            "type": ["null","double"], "default": null},
+    {"name": "close",          "type": ["null","double"], "default": null},
+    {"name": "points_change",  "type": ["null","double"], "default": null},
+    {"name": "pct_change",     "type": ["null","double"], "default": null},
+    {"name": "volume",         "type": ["null","long"],   "default": null},
+    {"name": "turnover_cr",    "type": ["null","double"], "default": null},
+    {"name": "pe_ratio",       "type": ["null","double"], "default": null},
+    {"name": "pb_ratio",       "type": ["null","double"], "default": null},
+    {"name": "div_yield",      "type": ["null","double"], "default": null}
+  ]
+}

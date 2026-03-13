@@ -1,0 +1,24 @@
+{
+  "namespace": "nse.derivatives",
+  "type": "record",
+  "name": "FOBhavRaw",
+  "doc": "Raw FO bhavcopy record from NSE via financeindia",
+  "fields": [
+    {"name": "ingested_at",       "type": "long"},
+    {"name": "trade_date",        "type": "string"},
+    {"name": "symbol",            "type": "string"},
+    {"name": "instrument_type",   "type": "string",           "doc": "FUTSTK, FUTIDX, OPTSTK, OPTIDX"},
+    {"name": "expiry_date",       "type": "string"},
+    {"name": "strike_price",      "type": ["null","double"],   "default": null},
+    {"name": "option_type",       "type": ["null","string"],   "default": null, "doc": "CE or PE"},
+    {"name": "open",              "type": ["null","double"],   "default": null},
+    {"name": "high",              "type": ["null","double"],   "default": null},
+    {"name": "low",               "type": ["null","double"],   "default": null},
+    {"name": "close",             "type": ["null","double"],   "default": null},
+    {"name": "settle_price",      "type": ["null","double"],   "default": null},
+    {"name": "contracts",         "type": ["null","long"],     "default": null},
+    {"name": "value_in_lakh",     "type": ["null","double"],   "default": null},
+    {"name": "open_interest",     "type": ["null","long"],     "default": null},
+    {"name": "change_in_oi",      "type": ["null","long"],     "default": null}
+  ]
+}
