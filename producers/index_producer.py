@@ -31,8 +31,9 @@ class IndexProducer(BaseProducer):
 
     def fetch_records(self, date: str) -> list[dict[str, Any]]:
         logger.info("index.fetch", date=date)
-        # Returns list of dicts directly from financeindia
-        raw_list = self._client.all_indices()
+        # Returns dict with 'data' key containing list of dicts
+        raw_res = self._client.get_all_indices()
+        raw_list = raw_res.get("data", [])
         ts = int(time.time() * 1000)
         rows = []
         for item in (raw_list or []):
@@ -43,11 +44,11 @@ class IndexProducer(BaseProducer):
                 "open": self._f(item.get("open")),
                 "high": self._f(item.get("high")),
                 "low": self._f(item.get("low")),
-                "close": self._f(item.get("last") or item.get("close")),
-                "points_change": self._f(item.get("change")),
-                "pct_change": self._f(item.get("percentChange") or item.get("pChange")),
-                "volume": self._i(item.get("totalTradedVolume") or item.get("yearHigh")),
-                "turnover_cr": self._f(item.get("totalTurnover")),
+                "close": self._f(item.get("last") or item.get("indicativeClose")),
+                "points_change": self._f(item.get("variation")),
+                "pct_change": self._f(item.get("percentChange")),
+                "volume": 0, # Volume not available in this snapshot
+                "turnover_cr": 0.0,
                 "pe_ratio": self._f(item.get("pe")),
                 "pb_ratio": self._f(item.get("pb")),
                 "div_yield": self._f(item.get("dy")),

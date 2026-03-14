@@ -40,7 +40,7 @@ class NeithSettings(BaseSettings):
 
     # ── Observability ─────────────────────────────────────────────────────
     log_level: str = "INFO"
-    prometheus_port: int = 8000
+    prometheus_port: int = 18099
 
     # ── Ingestion Behaviour ───────────────────────────────────────────────
     producer_rate_limit_per_sec: float = Field(2.0, description="Max NSE API calls/sec per domain")

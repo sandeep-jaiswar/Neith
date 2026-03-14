@@ -29,19 +29,8 @@ from config.settings import settings
 
 logger = structlog.get_logger(__name__)
 
-# ── Domain registry ────────────────────────────────────────────────────────
-# Each entry: (name, producer_factory_callable, date_required)
-DOMAIN_REGISTRY: dict[str, tuple[str, Callable, bool]] = {
-    "equity":       ("equity_bhavcopy",    _import_equity,       True),
-    "deliverable":  ("equity_deliverable", _import_deliverable,  True),
-    "fo":           ("fo_bhavcopy",        _import_fo,           True),
-    "index":        ("indices",            _import_index,        True),
-    "corporate":    ("corporate_actions",  _import_corporate,    True),
-    "surveillance": ("surveillance",       _import_surveillance, True),
-    "macro":        ("macro",              _import_macro,        True),
-}
 
-
+# ── Import factories ───────────────────────────────────────────────────────
 def _import_equity():
     from producers.equity_producer import EquityBhavProducer
     return EquityBhavProducer()
@@ -69,6 +58,19 @@ def _import_surveillance():
 def _import_macro():
     from producers.macro_producer import MacroProducer
     return MacroProducer()
+
+
+# ── Domain registry ────────────────────────────────────────────────────────
+# Each entry: (name, producer_factory_callable, date_required)
+DOMAIN_REGISTRY: dict[str, tuple[str, Callable, bool]] = {
+    "equity":       ("equity_bhavcopy",    _import_equity,       True),
+    "deliverable":  ("equity_deliverable", _import_deliverable,  True),
+    "fo":           ("fo_bhavcopy",        _import_fo,           True),
+    "index":        ("indices",            _import_index,        True),
+    "corporate":    ("corporate_actions",  _import_corporate,    True),
+    "surveillance": ("surveillance",       _import_surveillance, True),
+    "macro":        ("macro",              _import_macro,        True),
+}
 
 
 # ── Worker function (runs in subprocess) ──────────────────────────────────
@@ -165,7 +167,7 @@ def main() -> None:
     structlog.configure(
         processors=[
             structlog.stdlib.add_log_level,
-            structlog.stdlib.add_logger_name,
+            # structlog.stdlib.add_logger_name,
             structlog.processors.TimeStamper(fmt="iso"),
             structlog.dev.ConsoleRenderer(),
         ],

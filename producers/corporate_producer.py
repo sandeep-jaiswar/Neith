@@ -34,7 +34,8 @@ class CorporateActionProducer(BaseProducer):
 
     def fetch_records(self, date: str) -> list[dict[str, Any]]:
         logger.info("corporate.fetch", date=date)
-        raw_list = self._client.corporate_actions(symbol="", action_type="") or []
+        # Returns list of dicts directly from financeindia
+        raw_list = self._client.get_corporate_actions() or []
         ts = int(time.time() * 1000)
         rows = []
         for item in raw_list:
@@ -42,14 +43,14 @@ class CorporateActionProducer(BaseProducer):
                 "ingested_at": ts,
                 "symbol": str(item.get("symbol", "")).strip(),
                 "company_name": str(item.get("comp", "")).strip() or None,
-                "action_type": str(item.get("subject", item.get("type", "UNKNOWN"))).strip(),
+                "action_type": str(item.get("subject", "UNKNOWN")).strip(),
                 "ex_date": str(item.get("exDate", "")).strip() or None,
                 "record_date": str(item.get("recDate", "")).strip() or None,
                 "bc_start_date": str(item.get("bcStartDate", "")).strip() or None,
                 "bc_end_date": str(item.get("bcEndDate", "")).strip() or None,
                 "nd_start_date": str(item.get("ndStartDate", "")).strip() or None,
                 "nd_end_date": str(item.get("ndEndDate", "")).strip() or None,
-                "details": str(item.get("details", "")).strip() or None,
+                "details": str(item.get("subject", "")).strip() or None,
                 "series": str(item.get("series", "EQ")).strip() or None,
             }
             rows.append(row)

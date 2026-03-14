@@ -36,7 +36,7 @@ def init_topics() -> None:
                     "retention.ms": RETENTION_MS,
                     "compression.type": "snappy",
                     "min.insync.replicas": "1",
-                    "message.max.bytes": "10485760",  # 10 MB max message
+                    "max.message.bytes": "10485760",  # 10 MB max message
                 },
             )
         )

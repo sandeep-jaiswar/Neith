@@ -31,8 +31,34 @@ class FOBhavProducer(BaseProducer):
 
     def fetch_records(self, date: str) -> list[dict[str, Any]]:
         logger.info("fo_bhav.fetch", date=date)
-        raw = self._client.fo_bhavcopy(date)
-        return self._columnar_to_rows(raw, date)
+        # financeindia returns list of dicts for derivatives with segment param
+        raw_list = self._client.bhav_copy_derivatives(date, segment="FO")
+        if not raw_list:
+            return []
+
+        rows = []
+        ts = int(time.time() * 1000)
+        for item in raw_list:
+            row: dict[str, Any] = {
+                "ingested_at": ts,
+                "trade_date": date,
+                "instrument_type": item.get("FinInstrmTp"),
+                "symbol": item.get("TckrSymb"),
+                "expiry_date": item.get("XpryDt"),
+                "strike_price": self._f(item.get("StrkPric")),
+                "option_type": item.get("OptnTp"),
+                "open": self._f(item.get("OpnPric")),
+                "high": self._f(item.get("HghPric")),
+                "low": self._f(item.get("LwPric")),
+                "close": self._f(item.get("ClsPric")),
+                "settle_price": self._f(item.get("SttlmPric")),
+                "contracts": self._i(item.get("TtlNbOfTxsExctd")),
+                "value_in_lakh": self._f(item.get("TtlTrfVal")),
+                "open_interest": self._i(item.get("OpnIntrst")),
+                "change_in_oi": self._i(item.get("ChngInOpnIntrst")),
+            }
+            rows.append(row)
+        return rows
 
     def build_key(self, record: dict[str, Any]) -> str:
         return (
@@ -42,45 +68,15 @@ class FOBhavProducer(BaseProducer):
         )
 
     @staticmethod
-    def _columnar_to_rows(columnar: dict[str, list], date: str) -> list[dict[str, Any]]:
-        if not columnar:
-            return []
-        col_map = {
-            "INSTRUMENT": "instrument_type",
-            "SYMBOL": "symbol",
-            "EXPIRY_DT": "expiry_date",
-            "STRIKE_PR": "strike_price",
-            "OPTION_TYP": "option_type",
-            "OPEN": "open",
-            "HIGH": "high",
-            "LOW": "low",
-            "CLOSE": "close",
-            "SETTLE_PR": "settle_price",
-            "CONTRACTS": "contracts",
-            "VAL_INLAKH": "value_in_lakh",
-            "OPEN_INT": "open_interest",
-            "CHG_IN_OI": "change_in_oi",
-        }
-        length = len(next(iter(columnar.values())))
-        ts = int(time.time() * 1000)
-        rows = []
-        for i in range(length):
-            row: dict[str, Any] = {"ingested_at": ts, "trade_date": date}
-            for raw_col, vals in columnar.items():
-                mapped = col_map.get(raw_col.strip().upper(), raw_col.lower().strip())
-                val = vals[i]
-                if mapped in ("open", "high", "low", "close", "settle_price",
-                               "value_in_lakh", "strike_price"):
-                    try:
-                        row[mapped] = float(val) if val else None
-                    except (ValueError, TypeError):
-                        row[mapped] = None
-                elif mapped in ("contracts", "open_interest", "change_in_oi"):
-                    try:
-                        row[mapped] = int(float(val)) if val else None
-                    except (ValueError, TypeError):
-                        row[mapped] = None
-                else:
-                    row[mapped] = str(val).strip() if val else None
-            rows.append(row)
-        return rows
+    def _f(val) -> float | None:
+        try:
+            return float(val) if val is not None and str(val).strip() else None
+        except (ValueError, TypeError):
+            return None
+
+    @staticmethod
+    def _i(val) -> int | None:
+        try:
+            return int(float(val)) if val is not None and str(val).strip() else None
+        except (ValueError, TypeError):
+            return None

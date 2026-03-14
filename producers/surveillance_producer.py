@@ -40,14 +40,17 @@ class SurveillanceProducer(BaseProducer):
         rows: list[dict[str, Any]] = []
         ts = int(time.time() * 1000)
 
-        # ASM Long-term
-        rows.extend(self._wrap(self._client.asm_list(), "ASM_LT", ts, date))
-        # ASM Short-term
-        rows.extend(self._wrap(self._client.short_term_asm_list(), "ASM_ST", ts, date))
-        # GSM
-        rows.extend(self._wrap(self._client.gsm_list(), "GSM", ts, date))
+        # ASM Long-term (Currently unavailable in library version)
+        # rows.extend(self._wrap(self._client.asm_list(), "ASM_LT", ts, date))
+        
+        # ASM Short-term (Currently unavailable in library version)
+        # rows.extend(self._wrap(self._client.short_term_asm_list(), "ASM_ST", ts, date))
+        
+        # GSM (Currently unavailable in library version)
+        # rows.extend(self._wrap(self._client.gsm_list(), "GSM", ts, date))
+        
         # FO Ban
-        rows.extend(self._wrap(self._client.fo_ban_list(date), "FO_BAN", ts, date))
+        rows.extend(self._wrap(self._client.get_fo_sec_ban(), "FO_BAN", ts, date))
 
         return rows
 

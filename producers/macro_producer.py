@@ -44,7 +44,7 @@ class MacroProducer:
 
         # FII/DII
         try:
-            fii_dii = self._client.fii_dii_data() or []
+            fii_dii = self._client.get_fii_dii_activity() or []
             for item in fii_dii:
                 records.append(
                     {
@@ -59,7 +59,7 @@ class MacroProducer:
 
         # Market status
         try:
-            status = self._client.market_status()
+            status = self._client.get_market_status()
             records.append(
                 {
                     "ingested_at": ts,
