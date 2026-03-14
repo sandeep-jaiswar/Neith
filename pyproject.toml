@@ -12,7 +12,7 @@ license = { text = "MIT" }
 
 dependencies = [
     # Data source
-    "financeindia>=0.1.0",
+    "financeindia>=0.1.0a3",
     # Kafka
     "confluent-kafka[avro]>=2.4.0",
     "fastavro>=1.9.4",

@@ -114,7 +114,7 @@ def surveillance(
 
 def start():
     import uvicorn
-    uvicorn.run("api.main:app", host="0.0.0.0", port=8000, reload=False, workers=2)
+    uvicorn.run("api.main:app", host="0.0.0.0", port=18000, reload=False, workers=2)
 
 
 if __name__ == "__main__":

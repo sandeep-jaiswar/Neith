@@ -1,7 +1,7 @@
 # ──────────────────────────────────────────────────────────────────────────
 # Neith — Indian Stock Datalake Developer Makefile
 # ──────────────────────────────────────────────────────────────────────────
-DOCKER_COMPOSE = docker compose -f docker/docker-compose.yml
+DOCKER_COMPOSE = docker-compose -f docker/docker-compose.yml
 PYTHON         = python
 TODAY          = $(shell date +%Y-%m-%d)
 
@@ -21,14 +21,14 @@ up: ## Start all services (Kafka, Flink, Spark, MinIO, Airflow, Grafana)
 	$(DOCKER_COMPOSE) up -d
 	@echo ""
 	@echo "✅  Neith stack started. Services:"
-	@echo "   Kafka UI      → http://localhost:8080"
+	@echo "   Kafka UI      → http://localhost:18080"
 	@echo "   Schema Reg    → http://localhost:8081"
 	@echo "   Iceberg REST  → http://localhost:8181"
 	@echo "   Flink UI      → http://localhost:8082"
 	@echo "   Spark UI      → http://localhost:8083"
 	@echo "   Airflow       → http://localhost:8084  (admin/admin)"
-	@echo "   MinIO Console → http://localhost:9001  (neith-access/neith-secret99)"
-	@echo "   Prometheus    → http://localhost:9090"
+	@echo "   MinIO Console → http://localhost:19001  (neith-access/neith-secret99)"
+	@echo "   Prometheus    → http://localhost:19090"
 	@echo "   Grafana       → http://localhost:3000  (admin/neith123)"
 
 down: ## Stop all services
@@ -89,17 +89,17 @@ compact: ## Run Iceberg compaction and maintenance
 
 # ── API ────────────────────────────────────────────────────────────────────
 api: ## Start FastAPI production server (2 workers)
-	uvicorn api.main:app --host 0.0.0.0 --port 8000 --workers 2
+	uvicorn api.main:app --host 0.0.0.0 --port 18000 --workers 2
 
 api-dev: ## Start FastAPI with hot reload (dev mode)
-	uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+	uvicorn api.main:app --host 0.0.0.0 --port 18000 --reload
 
 # ── Query shortcuts ────────────────────────────────────────────────────────
-query-ohlcv: ## Quick query: curl localhost:8000/equities/RELIANCE/ohlcv?from_date=2024-01-01&to_date=2025-03-13
-	curl -s "http://localhost:8000/equities/RELIANCE/ohlcv?from_date=2024-01-01&to_date=$(TODAY)" | python -m json.tool | head -60
+query-ohlcv: ## Quick query: curl localhost:18000/equities/RELIANCE/ohlcv?from_date=2024-01-01&to_date=2025-03-13
+	curl -s "http://localhost:18000/equities/RELIANCE/ohlcv?from_date=2024-01-01&to_date=$(TODAY)" | python -m json.tool | head -60
 
 query-surveillance: ## Show current ASM stocks
-	curl -s "http://localhost:8000/surveillance?list_type=ASM_LT" | python -m json.tool | head -40
+	curl -s "http://localhost:18000/surveillance?list_type=ASM_LT" | python -m json.tool | head -40
 
 # ── Testing ────────────────────────────────────────────────────────────────
 test: ## Run all tests
